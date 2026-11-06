@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N-400 Civics Flashcards (Persistent SM-2)</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 24px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+    .container { max-width: 680px; width: 100%; display: flex; flex-direction: column; gap: 16px; }
+    .header { background: #1e293b; padding: 18px 20px; border-radius: 12px; border: 1px solid #334155; }
+    .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .stats { display: flex; gap: 16px; font-size: 14px; }
+    .stat-badge { padding: 4px 10px; border-radius: 20px; font-weight: 600; }
+    .badge-due { background: #ef444422; color: #f87171; border: 1px solid #ef444455; }
+    .badge-mastered { background: #10b98122; color: #34d399; border: 1px solid #10b98155; }
+    .card-box { background: #1e293b; border-radius: 14px; border: 1px solid #334155; min-height: 280px; padding: 32px 24px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); }
+    .category-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8; font-weight: 600; margin-bottom: 12px; }
+    .question-text { font-size: 20px; font-weight: 600; line-height: 1.4; color: #f8fafc; }
+    .answer-box { margin-top: 24px; padding-top: 20px; border-top: 1px solid #334155; display: none; }
+    .answer-text { font-size: 18px; color: #38bdf8; line-height: 1.5; font-weight: 500; }
+    .action-row { display: flex; gap: 10px; justify-content: center; }
+    button { cursor: pointer; border: none; outline: none; border-radius: 8px; font-weight: 600; transition: all 0.15s ease; }
+    .btn-reveal { background: #3b82f6; color: white; padding: 12px 28px; font-size: 16px; width: 100%; }
+    .btn-reveal:hover { background: #2563eb; }
+    .btn-grade { flex: 1; padding: 12px 6px; font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 4px; border-radius: 8px; }
+    .btn-again { background: #ef4444; color: white; }
+    .btn-hard { background: #f59e0b; color: white; }
+    .btn-good { background: #10b981; color: white; }
+    .btn-easy { background: #06b6d4; color: white; }
+    .grade-interval { font-size: 11px; opacity: 0.85; font-weight: 400; }
+    .bottom-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+    .btn-sub { background: #334155; color: #cbd5e1; padding: 8px 14px; font-size: 13px; }
+    .btn-sub:hover { background: #475569; color: white; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-top">
+        <h2 style="margin:0; font-size: 18px;">N-400 Naturalization Civics (ZIP 21903)</h2>
+        <div class="stats">
+          <span class="stat-badge badge-due" id="dueCount">Due: 0</span>
+          <span class="stat-badge badge-mastered" id="masteredCount">Mastered: 0</span>
+        </div>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size: 13px; color: #94a3b8;" id="currentDayLabel">Simulated Day: 1</span>
+        <button class="btn-sub" onclick="advanceDay()">Advance +1 Day</button>
+      </div>
+    </div>
+
+    <div class="card-box" id="cardContainer">
+      <div>
+        <div class="category-label" id="cardCategory">Loading...</div>
+        <div class="question-text" id="cardQuestion">Loading question...</div>
+        <div class="answer-box" id="answerBox">
+          <div style="font-size: 12px; text-transform: uppercase; color: #94a3b8; margin-bottom: 6px;">USCIS Approved Answer</div>
+          <div class="answer-text" id="cardAnswer"></div>
+        </div>
+      </div>
+      <div style="margin-top: 24px;">
+        <button class="btn-reveal" id="btnReveal" onclick="revealAnswer()">Show Answer</button>
+        <div class="action-row" id="gradeActions" style="display: none;">
+          <button class="btn-grade btn-again" onclick="gradeCard(1)">
+            <span>Again</span>
+            <span class="grade-interval" id="intAgain">&lt;1d</span>
+          </button>
+          <button class="btn-grade btn-hard" onclick="gradeCard(2)">
+            <span>Hard</span>
+            <span class="grade-interval" id="intHard">1d</span>
+          </button>
+          <button class="btn-grade btn-good" onclick="gradeCard(3)">
+            <span>Good</span>
+            <span class="grade-interval" id="intGood">1d</span>
+          </button>
+          <button class="btn-grade btn-easy" onclick="gradeCard(4)">
+            <span>Easy</span>
+            <span class="grade-interval" id="intEasy">4d</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-bar">
+      <button class="btn-sub" onclick="resetAllProgress()">Reset All Progress</button>
+      <span style="font-size: 12px; color: #64748b;">Progress saved automatically via localStorage</span>
+    </div>
+  </div>
+
+  <script>
+    const DECK_KEY = "n400_anki_deck_v1";
+    const DAY_KEY = "n400_anki_day_v1";
+
+    const INITIAL_DECK = [
+      { id: 1, front: "What is the supreme law of the land?", back: "The Constitution", cat: "Principles of American Democracy" },
+      { id: 2, front: "What does the Constitution do?", back: "Sets up the government; defines the government; protects basic rights of Americans.", cat: "Principles of American Democracy" },
+      { id: 3, front: "The idea of self-government is in the first three words of the Constitution. What are these words?", back: "We the People", cat: "Principles of American Democracy" },
+      { id: 4, front: "What is an amendment?", back: "A change (to the Constitution) or an addition (to the Constitution).", cat: "Principles of American Democracy" },
+      { id: 5, front: "What do we call the first ten amendments to the Constitution?", back: "The Bill of Rights", cat: "Principles of American Democracy" },
+      { id: 6, front: "What is one right or freedom from the First Amendment?", back: "Speech; religion; assembly; press; petition the government.", cat: "Principles of American Democracy" },
+      { id: 7, front: "How many amendments does the Constitution have?", back: "27", cat: "Principles of American Democracy" },
+      { id: 8, front: "What did the Declaration of Independence do?", back: "Announced our independence from Great Britain; declared our independence from Great Britain; said that the United States is free.", cat: "Principles of American Democracy" },
+      { id: 9, front: "What are two rights in the Declaration of Independence?", back: "Life; liberty; pursuit of happiness.", cat: "Principles of American Democracy" },
+      { id: 10, front: "What is freedom of religion?", back: "You can practice any religion, or not practice a religion.", cat: "Principles of American Democracy" },
+      { id: 11, front: "What is the economic system in the United States?", back: "Capitalist economy; market economy.", cat: "Principles of American Democracy" },
+      { id: 12, front: "What is the 'rule of law'?", back: "Everyone must follow the law; leaders must obey the law; government must obey the law; no one is above the law.", cat: "Principles of American Democracy" },
+      { id: 13, front: "Name one branch or part of the government.", back: "Congress; legislative; President; executive; the courts; judicial.", cat: "System of Government" },
+      { id: 14, front: "What stops one branch of government from becoming too powerful?", back: "Checks and balances; separation of powers.", cat: "System of Government" },
+      { id: 15, front: "Who is in charge of the executive branch?", back: "The President", cat: "System of Government" },
+      { id: 16, front: "Who makes federal laws?", back: "Congress; Senate and House of Representatives; (U.S. or national) legislature.", cat: "System of Government" },
+      { id: 17, front: "What are the two parts of the U.S. Congress?", back: "The Senate and House of Representatives.", cat: "System of Government" },
+      { id: 18, front: "How many U.S. Senators are there?", back: "100", cat: "System of Government" },
+      { id: 19, front: "We elect a U.S. Senator for how many years?", back: "6", cat: "System of Government" },
+      { id: 20, front: "Who is one of your state's U.S. Senators now? (ZIP 21903 / MD)", back: "Angela Alsobrooks OR Chris Van Hollen", cat: "System of Government" },
+      { id: 21, front: "The House of Representatives has how many voting members?", back: "435", cat: "System of Government" },
+      { id: 22, front: "We elect a U.S. Representative for how many years?", back: "2", cat: "System of Government" },
+      { id: 23, front: "Name your U.S. Representative. (ZIP 21903 / MD-01)", back: "Andy Harris", cat: "System of Government" },
+      { id: 24, front: "Who does a U.S. Senator represent?", back: "All people of the state.", cat: "System of Government" },
+      { id: 25, front: "Why do some states have more Representatives than other states?", back: "Because of the state's population; they have more people; some states have more people.", cat: "System of Government" },
+      { id: 26, front: "We elect a President for how many years?", back: "4", cat: "System of Government" },
+      { id: 27, front: "In what month do we vote for President?", back: "November", cat: "System of Government" },
+      { id: 28, front: "What is the name of the President of the United States now?", back: "Donald J. Trump", cat: "System of Government" },
+      { id: 29, front: "What is the name of the Vice President of the United States now?", back: "JD Vance", cat: "System of Government" },
+      { id: 30, front: "If the President can no longer serve, who becomes President?", back: "The Vice President", cat: "System of Government" },
+      { id: 31, front: "If both the President and Vice President can no longer serve, who becomes President?", back: "The Speaker of the House", cat: "System of Government" },
+      { id: 32, front: "Who is the Commander in Chief of the military?", back: "The President", cat: "System of Government" },
+      { id: 33, front: "Who signs bills to become laws?", back: "The President", cat: "System of Government" },
+      { id: 34, front: "Who vetoes bills?", back: "The President", cat: "System of Government" },
+      { id: 35, front: "What does the President's Cabinet do?", back: "Advises the President.", cat: "System of Government" },
+      { id: 36, front: "What are two Cabinet-level positions?", back: "Secretary of State; Secretary of Defense; Secretary of the Treasury; Attorney General; Vice President.", cat: "System of Government" },
+      { id: 37, front: "What does the judicial branch do?", back: "Reviews laws; explains laws; resolves disputes; decides if a law goes against the Constitution.", cat: "System of Government" },
+      { id: 38, front: "What is the highest court in the United States?", back: "The Supreme Court", cat: "System of Government" },
+      { id: 39, front: "How many justices are on the Supreme Court?", back: "9", cat: "System of Government" },
+      { id: 40, front: "Who is the Chief Justice of the United States now?", back: "John Roberts (John G. Roberts, Jr.)", cat: "System of Government" },
+      { id: 41, front: "Under our Constitution, some powers belong to the federal government. What is one power of the federal government?", back: "To print money; declare war; create an army; make treaties.", cat: "System of Government" },
+      { id: 42, front: "Under our Constitution, some powers belong to the states. What is one power of the states?", back: "Provide schooling and education; provide protection (police); provide safety (fire departments); give a driver's license; approve zoning and land use.", cat: "System of Government" },
+      { id: 43, front: "Who is the Governor of your state now? (Maryland)", back: "Wes Moore", cat: "System of Government" },
+      { id: 44, front: "What is the capital of your state? (Maryland)", back: "Annapolis", cat: "System of Government" },
+      { id: 45, front: "What are the two major political parties in the United States?", back: "Democratic and Republican", cat: "System of Government" },
+      { id: 46, front: "What is the political party of the President now?", back: "Republican (Party)", cat: "System of Government" },
+      { id: 47, front: "What is the name of the Speaker of the House of Representatives now?", back: "Mike Johnson", cat: "System of Government" },
+      { id: 48, front: "There are four amendments to the Constitution about who can vote. Describe one of them.", back: "Citizens eighteen (18) and older can vote; you don't have to pay a poll tax to vote; any citizen can vote (women and men); a male citizen of any race can vote.", cat: "Rights and Responsibilities" },
+      { id: 49, front: "What is one responsibility that is only for United States citizens?", back: "Serve on a jury; vote in a federal election.", cat: "Rights and Responsibilities" },
+      { id: 50, front: "Name one right only for United States citizens.", back: "Vote in a federal election; run for federal office.", cat: "Rights and Responsibilities" },
+      { id: 51, front: "What are two rights of everyone living in the United States?", back: "Freedom of expression; freedom of speech; freedom of assembly; freedom to petition government; freedom of religion; right to bear arms.", cat: "Rights and Responsibilities" },
+      { id: 52, front: "What do we show loyalty to when we say the Pledge of Allegiance?", back: "The United States; the flag.", cat: "Rights and Responsibilities" },
+      { id: 53, front: "What is one promise you make when you become a United States citizen?", back: "Give up loyalty to other countries; defend the Constitution and laws of the United States; obey laws of the United States; serve in U.S. military (if needed); serve the nation (if needed); be loyal to the United States.", cat: "Rights and Responsibilities" },
+      { id: 54, front: "How old do citizens have to be to vote for President?", back: "18 and older", cat: "Rights and Responsibilities" },
+      { id: 55, front: "What are two ways that Americans can participate in their democracy?", back: "Vote; join a political party; help with a campaign; join a civic group; run for office; call Senators and Representatives.", cat: "Rights and Responsibilities" },
+      { id: 56, front: "When is the last day you can send in federal income tax forms?", back: "April 15", cat: "Rights and Responsibilities" },
+      { id: 57, front: "When must all men register for the Selective Service?", back: "At age 18; between 18 and 26.", cat: "Rights and Responsibilities" },
+      { id: 58, front: "What is one reason colonists came to America?", back: "Freedom; political liberty; religious freedom; economic opportunity; escape persecution.", cat: "Colonial Period and Independence" },
+      { id: 59, front: "Who lived in America before the Europeans arrived?", back: "American Indians; Native Americans.", cat: "Colonial Period and Independence" },
+      { id: 60, front: "What group of people was taken to America and sold as slaves?", back: "Africans; people from Africa.", cat: "Colonial Period and Independence" },
+      { id: 61, front: "Why did the colonists fight the British?", back: "Because of high taxes (taxation without representation); British army stayed in their houses (boarding/quartering); didn't have self-government.", cat: "Colonial Period and Independence" },
+      { id: 62, front: "Who wrote the Declaration of Independence?", back: "Thomas Jefferson", cat: "Colonial Period and Independence" },
+      { id: 63, front: "When was the Declaration of Independence adopted?", back: "July 4, 1776", cat: "Colonial Period and Independence" },
+      { id: 64, front: "There were 13 original states. Name three.", back: "New Hampshire, Massachusetts, Rhode Island, Connecticut, New York, New Jersey, Pennsylvania, Delaware, Maryland, Virginia, North Carolina, South Carolina, Georgia.", cat: "Colonial Period and Independence" },
+      { id: 65, front: "What happened at the Constitutional Convention?", back: "The Constitution was written; Founding Fathers wrote the Constitution.", cat: "Colonial Period and Independence" },
+      { id: 66, front: "When was the Constitution written?", back: "1787", cat: "Colonial Period and Independence" },
+      { id: 67, front: "The Federalist Papers supported the passage of the U.S. Constitution. Name one of the writers.", back: "James Madison; Alexander Hamilton; John Jay; Publius.", cat: "Colonial Period and Independence" },
+      { id: 68, front: "What is one thing Benjamin Franklin is famous for?", back: "U.S. diplomat; oldest member of Constitutional Convention; first Postmaster General of the U.S.; writer of 'Poor Richard's Almanac'; started first free libraries.", cat: "Colonial Period and Independence" },
+      { id: 69, front: "Who is the 'Father of Our Country'?", back: "George Washington", cat: "Colonial Period and Independence" },
+      { id: 70, front: "Who was the first President?", back: "George Washington", cat: "Colonial Period and Independence" },
+      { id: 71, front: "What territory did the United States buy from France in 1803?", back: "The Louisiana Territory; Louisiana.", cat: "1800s" },
+      { id: 72, front: "Name one war fought by the United States in the 1800s.", back: "War of 1812; Mexican-American War; Civil War; Spanish-American War.", cat: "1800s" },
+      { id: 73, front: "Name the U.S. war between the North and the South.", back: "The Civil War; the War between the States.", cat: "1800s" },
+      { id: 74, front: "Name one problem that led to the Civil War.", back: "Slavery; economic reasons; states' rights.", cat: "1800s" },
+      { id: 75, front: "What was one important thing that Abraham Lincoln did?", back: "Freed the slaves (Emancipation Proclamation); saved (or preserved) the Union; led the U.S. during the Civil War.", cat: "1800s" },
+      { id: 76, front: "What did the Emancipation Proclamation do?", back: "Freed the slaves; freed slaves in the Confederacy/Confederate states.", cat: "1800s" },
+      { id: 77, front: "What did Susan B. Anthony do?", back: "Fought for women's rights; fought for civil rights.", cat: "1800s" },
+      { id: 78, front: "Name one war fought by the United States in the 1900s.", back: "World War I; World War II; Korean War; Vietnam War; (Persian) Gulf War.", cat: "Recent American History" },
+      { id: 79, front: "Who was President during World War I?", back: "Woodrow Wilson", cat: "Recent American History" },
+      { id: 80, front: "Who was President during the Great Depression and World War II?", back: "Franklin Roosevelt", cat: "Recent American History" },
+      { id: 81, front: "Who did the United States fight in World War II?", back: "Japan, Germany, and Italy.", cat: "Recent American History" },
+      { id: 82, front: "Before he was President, Eisenhower was a general. What war was he in?", back: "World War II", cat: "Recent American History" },
+      { id: 83, front: "During the Cold War, what was the main concern of the United States?", back: "Communism", cat: "Recent American History" },
+      { id: 84, front: "What movement tried to end racial discrimination?", back: "Civil rights (movement)", cat: "Recent American History" },
+      { id: 85, front: "What did Martin Luther King, Jr. do?", back: "Fought for civil rights; worked for equality for all Americans.", cat: "Recent American History" },
+      { id: 86, front: "What major event happened on September 11, 2001, in the United States?", back: "Terrorists attacked the United States.", cat: "Recent American History" },
+      { id: 87, front: "Name one American Indian tribe in the United States.", back: "Cherokee; Navajo; Sioux; Chippewa; Choctaw; Pueblo; Apache; Iroquois; Creek; Blackfeet; Seminole; Cheyenne; Shawnee; Mohegan; Huron; Lakota; Crow; Hopi; Inuit.", cat: "Recent American History" },
+      { id: 88, front: "Name one of the two longest rivers in the United States.", back: "Missouri (River); Mississippi (River).", cat: "Geography" },
+      { id: 89, front: "What ocean is on the West Coast of the United States?", back: "Pacific (Ocean)", cat: "Geography" },
+      { id: 90, front: "What ocean is on the East Coast of the United States?", back: "Atlantic (Ocean)", cat: "Geography" },
+      { id: 91, front: "Name one U.S. territory.", back: "Puerto Rico; U.S. Virgin Islands; American Samoa; Northern Mariana Islands; Guam.", cat: "Geography" },
+      { id: 92, front: "Name one state that borders Canada.", back: "Maine; New Hampshire; Vermont; New York; Pennsylvania; Ohio; Michigan; Minnesota; North Dakota; Montana; Idaho; Washington; Alaska.", cat: "Geography" },
+      { id: 93, front: "Name one state that borders Mexico.", back: "California; Arizona; New Mexico; Texas.", cat: "Geography" },
+      { id: 94, front: "What is the capital of the United States?", back: "Washington, D.C.", cat: "Geography" },
+      { id: 95, front: "Where is the Statue of Liberty?", back: "New York (Harbor); Liberty Island.", cat: "Geography" },
+      { id: 96, front: "Why does the flag have 13 stripes?", back: "Because there were 13 original colonies; because the stripes represent the original colonies.", cat: "Symbols" },
+      { id: 97, front: "Why does the flag have 50 stars?", back: "Because there is one star for each state; because each star represents a state; because there are 50 states.", cat: "Symbols" },
+      { id: 98, front: "What is the name of the national anthem?", back: "The Star-Spangled Banner", cat: "Symbols" },
+      { id: 99, front: "When do we celebrate Independence Day?", back: "July 4", cat: "Holidays" },
+      { id: 100, front: "Name two national U.S. holidays.", back: "New Year's Day; Martin Luther King, Jr. Day; Presidents' Day; Memorial Day; Juneteenth; Independence Day; Labor Day; Columbus Day; Veterans Day; Thanksgiving; Christmas.", cat: "Holidays" }
+    ];
+
+    let deck = [];
+    let currentDay = 1;
+    let activeCard = null;
+
+    function init() {
+      const savedDeck = localStorage.getItem(DECK_KEY);
+      const savedDay = localStorage.getItem(DAY_KEY);
+      if (savedDeck) {
+        deck = JSON.parse(savedDeck);
+      } else {
+        deck = INITIAL_DECK.map(c => ({
+          ...c,
+          interval: 1,
+          repetitions: 0,
+          easeFactor: 2.5,
+          dueDate: 1
+        }));
+        saveDeck();
+      }
+      if (savedDay) currentDay = parseInt(savedDay, 10);
+      updateUI();
+    }
+
+    function saveDeck() {
+      localStorage.setItem(DECK_KEY, JSON.stringify(deck));
+      localStorage.setItem(DAY_KEY, currentDay.toString());
+    }
+
+    function getDueCards() {
+      return deck.filter(c => c.dueDate <= currentDay);
+    }
+
+    function updateUI() {
+      document.getElementById("currentDayLabel").textContent = `Simulated Day: ${currentDay}`;
+      const dueCards = getDueCards();
+      const masteredCards = deck.filter(c => c.interval >= 21);
+      document.getElementById("dueCount").textContent = `Due: ${dueCards.length}`;
+      document.getElementById("masteredCount").textContent = `Mastered: ${masteredCards.length}`;
+
+      if (dueCards.length > 0) {
+        activeCard = dueCards[0];
+        document.getElementById("cardCategory").textContent = activeCard.cat;
+        document.getElementById("cardQuestion").textContent = activeCard.front;
+        document.getElementById("cardAnswer").textContent = activeCard.back;
+        document.getElementById("answerBox").style.display = "none";
+        document.getElementById("btnReveal").style.display = "block";
+        document.getElementById("gradeActions").style.display = "none";
+        calculateIntervalEstimates(activeCard);
+      } else {
+        activeCard = null;
+        document.getElementById("cardCategory").textContent = "All Caught Up";
+        document.getElementById("cardQuestion").textContent = "You've reviewed all cards due today! Advance to the next day or check back tomorrow.";
+        document.getElementById("answerBox").style.display = "none";
+        document.getElementById("btnReveal").style.display = "none";
+        document.getElementById("gradeActions").style.display = "none";
+      }
+    }
+
+    function revealAnswer() {
+      document.getElementById("answerBox").style.display = "block";
+      document.getElementById("btnReveal").style.display = "none";
+      document.getElementById("gradeActions").style.display = "flex";
+    }
+
+    function calculateIntervalEstimates(card) {
+      document.getElementById("intAgain").textContent = "1d";
+      document.getElementById("intHard").textContent = `${Math.max(1, Math.round(card.interval * 1.2))}d`;
+      const nextGood = card.repetitions === 0 ? 1 : (card.repetitions === 1 ? 6 : Math.round(card.interval * card.easeFactor));
+      document.getElementById("intGood").textContent = `${nextGood}d`;
+      const nextEasy = Math.round(nextGood * 1.3);
+      document.getElementById("intEasy").textContent = `${Math.max(4, nextEasy)}d`;
+    }
+
+    function gradeCard(grade) {
+      if (!activeCard) return;
+
+      let { interval, repetitions, easeFactor } = activeCard;
+
+      if (grade === 1) { // Again
+        repetitions = 0;
+        interval = 1;
+        easeFactor = Math.max(1.3, easeFactor - 0.20);
+      } else if (grade === 2) { // Hard
+        interval = Math.max(1, Math.round(interval * 1.2));
+        easeFactor = Math.max(1.3, easeFactor - 0.15);
+      } else if (grade === 3) { // Good
+        if (repetitions === 0) interval = 1;
+        else if (repetitions === 1) interval = 6;
+        else interval = Math.round(interval * easeFactor);
+        repetitions += 1;
+      } else if (grade === 4) { // Easy
+        if (repetitions === 0) interval = 4;
+        else if (repetitions === 1) interval = 8;
+        else interval = Math.round(interval * easeFactor * 1.3);
+        repetitions += 1;
+        easeFactor += 0.15;
+      }
+
+      activeCard.interval = interval;
+      activeCard.repetitions = repetitions;
+      activeCard.easeFactor = easeFactor;
+      activeCard.dueDate = currentDay + interval;
+
+      saveDeck();
+      updateUI();
+    }
+
+    function advanceDay() {
+      currentDay += 1;
+      saveDeck();
+      updateUI();
+    }
+
+    function resetAllProgress() {
+      if (confirm("Reset all learning metrics and review histories back to Day 1?")) {
+        localStorage.removeItem(DECK_KEY);
+        localStorage.removeItem(DAY_KEY);
+        currentDay = 1;
+        init();
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
